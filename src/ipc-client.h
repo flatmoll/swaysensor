@@ -1,5 +1,8 @@
 #pragma once
 
+#define MAX_PAYLOAD	114
+#define MAX_SHORT_RESP	96
+
 /**
  * Select Sway IPC message types.
  */

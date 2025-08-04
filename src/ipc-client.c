@@ -21,117 +21,119 @@
 #define IPC_MAGIC	"i3-ipc"
 #define IPC_LEN		6
 #define HDR_LEN		14
-#define MAX_PAYLOAD	242
-#define MAX_SHORT_RESP	128
+#define OUT_CMD		"output "
+#define OUT_LEN		7
 
 static char *sock_path;
-static char device[MAX_SHORT_RESP];
+char device_cmd[MAX_SHORT_RESP];
+size_t device_len;
 
-/**
- * This function currently obtains an identifier of the first output
- * among those returned by SwayWM - it is assumed to be the primary one.
- */
-static void set_device(const char *buf) {
-	const char field[] = "\"name\": \"";
-	char *start = strstr(buf, field);
-	if (!start) {
-		fprintf(stderr, "Unexpected GET_OUTPUTS response.\n");
-		return;
+static bool ipc_parse(char *buf, size_t len) {
+	size_t received = 0;
+	ssize_t n;
+	
+	while (received < len) {
+		n = recv(sock_fd, buf + received, len - received, 0);
+		if (n < 0)
+			return false;
+		received += n;
 	}
-
-	start += sizeof(field) - 1; /* exclude '\0' */
-	char *end = strchr(start, '\"');
-	size_t len = end ? (size_t)(end - start) : strlen(start);
-
-	memcpy(device, start, len);
-	device[len] = '\0';
-	printf("Device known.\n");
+	
+	return true;
 }
 
 /**
- * This function first receives header, deduces response length, and
- * then reads this response in the same manner.
- *
- * Because the length of the output of GET_OUTPUTS may vary significantly
+ * Part of this function resembles ipc_read(), but because
+ * the length of the output of GET_OUTPUTS may vary significantly
  * across devices, this type of reponse is processed on the heap.
+ *
+ * This function currently obtains an identifier of the first output
+ * among those returned by SwayWM - it is assumed to be the primary one.
  */
-static bool ipc_read(message_t type) {
-	uint32_t resp_len;
-	size_t received = 0;
-	ssize_t n;
-	char *buf;
-	char short_resp[MAX_SHORT_RESP];
-
-	switch (type)
-	{
-	case 0:
-		buf = short_resp;
-		break;
-	case 3:
-		buf = malloc(HDR_LEN);
-		if (!buf) {
-			perror("ipc malloc");
-			return false;
-		}
-		break;
-	default:
-		fprintf(stderr, "Unmatched response type: %d.\n", type);
-		return false;
+static bool set_device() {
+	uint32_t len;
+	char *buf = malloc(HDR_LEN);
+	if (!buf) {
+		perror("set device malloc");
+		goto error;
 	}
 
-	while (received < HDR_LEN) {
-		n = recv(sock_fd, buf + received,
-				HDR_LEN - received, 0);
-		if (n < 0) {
-			perror("ipc recv header");
-			goto error;
-		}
-		received += n;
+	if (!ipc_parse(buf, HDR_LEN)) {
+		fprintf(stderr, "Failed to parse header.\n");
+		goto error;
 	}
 
-	memcpy(&resp_len, buf + IPC_LEN, 4);
-	if (type == 3 && resp_len > 0) {
-		char *tmp = realloc(buf, HDR_LEN + resp_len);
+	memcpy(&len, buf + IPC_LEN, 4);	
+	if (len > 0) {
+		char *tmp = realloc(buf, HDR_LEN + len + 1);
 		if (!tmp) {
-			perror("ipc realloc");
+			perror("set device realloc");
 			goto error;
 		}
 		buf = tmp;
 	}
 
-	received = 0;
-	while (received < resp_len) {
-		n = recv(sock_fd, buf + HDR_LEN + received,
-				resp_len - received, 0);
-		if (n < 0) {
-			perror("ipc recv payload");
-			goto error;
-		}
-		received += n;		
-	}
-	
-	switch (type)
-	{
-	case 0:
-		return strstr(buf + HDR_LEN, "\"success\": true");
-	case 3:
-		set_device(buf + HDR_LEN);
-		free(buf);
-		break;
-	default:
-		return false;
+	if (!ipc_parse(buf + HDR_LEN, len)) {
+		fprintf(stderr, "Failed to parse response.\n");
+		goto error;
 	}
 
-	return device[0] != '\0';
+	const char field[] = "\"name\": \"";
+	char *start = strstr(buf + HDR_LEN, field);
+	if (!start) {
+		fprintf(stderr, "Unexpected GET_OUTPUTS response.\n");
+		goto error;
+	}
+
+	start += sizeof(field) - 1; /* exclude '\0' */
+	char *end = strchr(start, '\"');
+
+	/* Open question: maybe cast strlen() to a char, given that
+	 * MAX_SHORT_RESP already intdroduces size constraint? */
+	device_len = end ? (size_t)(end - start) : strlen(start);
+	memcpy(device_cmd, OUT_CMD, OUT_LEN);
+	memcpy(device_cmd + OUT_LEN, start, device_len);
+	device_len += OUT_LEN;
+	device_cmd[device_len] = '\0';
+
+	free(buf);
+	return true;
 
 error:
-	if (type == 3)
+	if (buf)
 		free(buf);
 	return false;
 }
 
 /**
- * Messages, with the maximum size of HDR_LEN + MAX_PAYLOAD = 256 bytes,
+ * This function asks ipc_parse() to parse header, deduces length,
+ * and then asks the same function to read payload.
+ * Checks whether WM reported success.
+ * */
+static bool ipc_read(message_t type) {
+	if (type == 3)
+		return set_device();
+
+	uint32_t len;	
+	char buf[MAX_SHORT_RESP];
+
+	if (!ipc_parse(buf, HDR_LEN)) {
+		fprintf(stderr, "Failed to parse header.\n");
+		return false;
+	}
+
+	memcpy(&len, buf + IPC_LEN, 4);
+
+	if (!ipc_parse(buf + HDR_LEN, len)) {
+		fprintf(stderr, "Failed to parse response.\n");
+		return false;
+	}
+
+	return strstr(buf + HDR_LEN, "\"success\": true") != NULL;
+}
+
+/**
+ * Messages, with the maximum size of HDR_LEN + MAX_PAYLOAD = 128 bytes,
  * are supposed to be short and are written to socket from the stack.
  * Therefore, the while loop was added just in case something prevents
  * write() to deliver a message even so short.
@@ -172,8 +174,7 @@ bool ipc_send(message_t type, const char *payload) {
 }
 
 /**
- * This is formally async-safe but, due to the nature of this
- * function, only called at the beginning.
+ * This function is only called at the initial (setup) stage.
  */
 bool ipc_connect() {
 	sock_path = getenv("SWAYSOCK");

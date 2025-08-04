@@ -6,9 +6,9 @@
 #define NUM_DEV 3
 
 /**
- * For linking purposes, this comes from main.c.
+ * For linking purposes, defined in main.c.
  */
-extern bool devices[NUM_DEV];
+extern bool devices[];
 
 /**
  * Connect to the sensor proxy via GDBus.

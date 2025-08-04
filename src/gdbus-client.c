@@ -14,7 +14,7 @@
 #include <gio/gio.h>
 
 #include "gdbus-client.h"
-#include "sensor-handlers.h"
+#include "sensors.h"
 
 #define PROXY_NAME "net.hadess.SensorProxy"
 #define PROXY_PATH "/net/hadess/SensorProxy"
@@ -42,21 +42,7 @@ static const char * const release_cmd[NUM_DEV] = {
 	"ReleaseProximity",
 };
 
-static guint property_connections[NUM_DEV];
-
-void (*sensor_handlers[NUM_DEV])(
-	struct _GDBusConnection *,
-	const char *,
-	const char *,
-	const char *,
-	const char *,
-	struct _GVariant *,
-	void *
-) = {
-	accel,
-	light,
-	proximity,
-};
+static unsigned int prop_conn;
 
 static GDBusConnection *connection;
 static GDBusProxy *proxy;
@@ -77,10 +63,6 @@ bool is_light_vendor = true;
 void gdbus_close() {
 	for (short i = 0; i < NUM_DEV; i++) {
 		if (devices[i]) {
-			g_dbus_connection_signal_unsubscribe(
-				connection,
-				property_connections[i]
-			);
 			result = g_dbus_proxy_call_sync(
 					proxy,
 					release_cmd[i],
@@ -99,6 +81,8 @@ void gdbus_close() {
 			}
 		}
 	}
+
+	g_dbus_connection_signal_unsubscribe(connection, prop_conn);
 
 	g_clear_error(&error);
 	error = NULL;
@@ -159,21 +143,8 @@ bool gdbus_connect() {
 					&error
 			);
 			if (result) {
-				property_connections[i] =
-				g_dbus_connection_signal_subscribe(
-					connection,
-					PROXY_NAME,
-					PROPS_NAME,
-					PROPS_TYPE,
-					PROXY_PATH,
-					NULL,
-					G_DBUS_SIGNAL_FLAGS_NONE,
-					sensor_handlers[i],
-					NULL,
-					NULL
-				);
+
 				reg++;
-				printf("Some registration done.\n");
 			} else {
 				g_printerr(
 					"Could not claim device: %s\n",
@@ -189,6 +160,19 @@ bool gdbus_connect() {
 		fprintf(stderr, "No devices were registered.\n");
 		return false;
 	}
+
+	prop_conn = g_dbus_connection_signal_subscribe(
+		connection,
+		PROXY_NAME,
+		PROPS_NAME,
+		PROPS_TYPE,
+		PROXY_PATH,
+		NULL,
+		G_DBUS_SIGNAL_FLAGS_NONE,
+		sensor_handler,
+		NULL,
+		NULL
+	);
 
 	return true;
 }
