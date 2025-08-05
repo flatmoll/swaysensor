@@ -24,9 +24,10 @@
 #define OUT_CMD		"output "
 #define OUT_LEN		7
 
+extern int sock_fd;
 static char *sock_path;
-char device_cmd[MAX_SHORT_RESP];
 size_t device_len;
+char device_cmd[MAX_SHORT_RESP];
 
 static bool ipc_parse(char *buf, size_t len) {
 	size_t received = 0;

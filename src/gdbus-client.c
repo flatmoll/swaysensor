@@ -21,6 +21,8 @@
 #define PROPS_NAME "org.freedesktop.DBus.Properties"
 #define PROPS_TYPE "PropertiesChanged"
 
+extern bool devices[];
+
 /**
  * Pointers to commands to Claim and Release proxy methods,
  * as well as handler functions. property_connections stores
@@ -61,7 +63,7 @@ bool is_light_vendor = true;
  * clean up as much as possible.
  */
 void gdbus_close() {
-	for (short i = 0; i < NUM_DEV; i++) {
+	for (int i = 0; i < NUM_DEV; i++) {
 		if (devices[i]) {
 			result = g_dbus_proxy_call_sync(
 					proxy,
@@ -130,8 +132,8 @@ bool gdbus_connect() {
 		return false;
 	}
 	
-	short reg = 0;
-	for (short i = 0; i < NUM_DEV; i++) {
+	int reg = 0;
+	for (int i = 0; i < NUM_DEV; i++) {
 		if (devices[i]) {
 			result = g_dbus_proxy_call_sync(
 					proxy,

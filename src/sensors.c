@@ -6,7 +6,9 @@
 
 #define ROTATION "transform"
 
+extern size_t device_len;
 extern char device_cmd[MAX_SHORT_RESP];
+extern bool is_light_vendor;
 
 static const char accel_cmd[4][7] = {
 	"normal",
@@ -49,21 +51,18 @@ static void accel(const char *key, struct _GVariant *val) {
 
 	while (prop[i] != accel_val[k]) k++;
 
-
-	
-
 	/* ......device_len->|....+10->|....+7 (k=0)->| + '\0' => +18
 	 * output {identifier} transform {degree value}
 	 */
-	if (snprintf(cmd, device_len + 18, "%s %s %s", device_cmd,
-				ROTATION, accel_cmd[k]) > MAX_PAYLOAD) {
-		fprintf(stderr, "Maximum payload length exceeded.\n");
+	i = snprintf(cmd, device_len + 18, "%s %s %s",
+			device_cmd, ROTATION, accel_cmd[k]);
+	if (i < 0 || i > MAX_PAYLOAD) {
+		fprintf(stderr, "Failed to write accel payload.\n");
 		return;
 	}
 
 	if (!ipc_send(RUN_COMMAND, cmd))
-		fprintf(stderr, "Could not send command or \
-				the response was unsuccessful.\n");
+		fprintf(stderr, "Failed to send command.\n");
 }
 
 static void light(const char *key, struct _GVariant *val) {

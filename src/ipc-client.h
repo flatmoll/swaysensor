@@ -12,12 +12,6 @@ typedef enum {
 } message_t;
 
 /**
- * Unlike other IPC variables,
- * socket file descriptor is held by main.
- */
-extern int sock_fd;
-
-/**
  * Connect to IPC socket.
  * @return false on error
  */
