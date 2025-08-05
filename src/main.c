@@ -8,7 +8,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/file.h>
 #include <gio/gio.h>
 #include <glib-unix.h>
@@ -29,7 +28,6 @@ bool devices[NUM_DEV] = {
 	false, /* proximity */
 };
 
-static int fd;
 int sock_fd = -1;
 static GMainLoop *loop;
 
@@ -73,22 +71,18 @@ int main(int argc, char **argv) {
 		default:
 			return EXIT_FAILURE;
 		}
-	}		
+	}
 
-	/* Len ("/run/user" + max UID + "/swaysensor.pid" + '\0') = 36 */
-	char pidfile[36];
-	/* Len (max PID + "\0"), with ceiling to nearest power of 2. */
-	char pid_buf[16];
-
-	c = snprintf(pidfile, sizeof(pidfile), "%s%s",
-				getenv("XDG_RUNTIME_DIR"),
-				"/swaysensor.pid");
-	if (!c) {
+	/* Len ("/run/user" + max UID + "/swaysensor.lock" + '\0') = 37 */
+	char lockfile[37];
+	c = snprintf(lockfile, sizeof(lockfile), "%s/swaysensor.lock",
+			getenv("XDG_RUNTIME_DIR"));
+	if (c == 0 || c >= sizeof(lockfile)) {
 		fprintf(stderr, "Could not get runtime directory.\n");
 		return EXIT_FAILURE;
 	}
 
-	fd = open(pidfile, O_RDWR | O_CREAT, 0644);
+	int fd = open(lockfile, O_CREAT | O_WRONLY, 0644);
 	if (fd == -1) {
 		perror("open pidfile");
 		return EXIT_FAILURE;
@@ -101,16 +95,8 @@ int main(int argc, char **argv) {
 			perror("flock");
 		close(fd);
 		return EXIT_FAILURE;
-	}
-
-	if (ftruncate(fd, 0) == -1)
-		perror("file truncation");
+	}	
 	
-	c = snprintf(pid_buf, sizeof(pid_buf),
-				"%ld\n", (long)getpid());
-	if (write(fd, pid_buf, c) == -1)
-		perror("write pid");
-
 	if (!ipc_connect()) {
 		fprintf(stderr, "Could not connect to Sway socket.\n");
 		close(fd);

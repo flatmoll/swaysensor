@@ -56,7 +56,7 @@ static void accel(const char *key, struct _GVariant *val) {
 	 */
 	i = snprintf(cmd, device_len + 18, "%s %s %s",
 			device_cmd, ROTATION, accel_cmd[k]);
-	if (i < 0 || i > MAX_PAYLOAD) {
+	if (i == 0 || i > MAX_PAYLOAD) {
 		fprintf(stderr, "Failed to write accel payload.\n");
 		return;
 	}
