@@ -32,7 +32,7 @@ int sock_fd = -1;
 static GMainLoop *loop;
 
 static gboolean g_handle(gpointer data) {
-	printf(" - Received signal, exiting.\n");
+	g_message("Received signal, exiting.");
 	g_main_loop_quit(loop);
 	return G_SOURCE_REMOVE;
 }
@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 	c = snprintf(lockfile, sizeof(lockfile), "%s/swaysensor.lock",
 			getenv("XDG_RUNTIME_DIR"));
 	if (c == 0 || c >= sizeof(lockfile)) {
-		fprintf(stderr, "Could not get runtime directory.\n");
+		g_printerr("Could not get runtime directory.\n");
 		return EXIT_FAILURE;
 	}
 
@@ -90,15 +90,16 @@ int main(int argc, char **argv) {
 
 	if (flock(fd, LOCK_EX|LOCK_NB) == -1) {
 		if (errno == EWOULDBLOCK)
-			fprintf(stderr, "Another instance is running.\n");
+			g_printerr("Another instance is running.\n");
 		else
 			perror("flock");
+
 		close(fd);
 		return EXIT_FAILURE;
 	}	
 	
 	if (!ipc_connect()) {
-		fprintf(stderr, "Could not connect to Sway socket.\n");
+		g_printerr("Could not connect to Sway socket.\n");
 		close(fd);
 		return EXIT_FAILURE;
 	}
@@ -107,8 +108,7 @@ int main(int argc, char **argv) {
 	 * with accelerometer and proximity sensor. */
 	if (devices[0] || devices[2]) {
 		if (!ipc_send(GET_OUTPUTS, "")) {
-			fprintf(stderr,
-				"Could not obtain display identifier.\n");
+			g_printerr("Failed to get display identifier.\n");
 			close(sock_fd);
 			close(fd);
 			return EXIT_FAILURE;
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (!gdbus_connect()) {
-		fprintf(stderr, "Could not connect to sensor proxy.\n");
+		g_printerr("Could not connect to sensor proxy.\n");
 		close(sock_fd);
 		close(fd);
 		return EXIT_FAILURE;

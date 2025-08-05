@@ -57,12 +57,12 @@ static void accel(const char *key, struct _GVariant *val) {
 	i = snprintf(cmd, device_len + 18, "%s %s %s",
 			device_cmd, ROTATION, accel_cmd[k]);
 	if (i == 0 || i > MAX_PAYLOAD) {
-		fprintf(stderr, "Failed to write accel payload.\n");
+		g_printerr("Failed to write accel payload.\n");
 		return;
 	}
 
 	if (!ipc_send(RUN_COMMAND, cmd))
-		fprintf(stderr, "Failed to send command.\n");
+		g_printerr("Failed to send command.\n");
 }
 
 static void light(const char *key, struct _GVariant *val) {
@@ -118,7 +118,7 @@ void sensor_handler(
 			 * updates if the sensor is unavailable. */
 			break;
 		default:
-			fprintf(stderr, "Unmatched property: %s.\n", key);
+			g_printerr("Unmatched property: %s.\n", key);
 		}
 	}
 

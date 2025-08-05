@@ -159,7 +159,7 @@ bool gdbus_connect() {
 	}
 
 	if (reg == 0) {
-		fprintf(stderr, "No devices were registered.\n");
+		g_printerr("No devices were registered.\n");
 		return false;
 	}
 

@@ -9,12 +9,14 @@
  */
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <gio/gio.h>
 
 #include "ipc-client.h"
 
@@ -55,12 +57,13 @@ static bool set_device() {
 	uint32_t len;
 	char *buf = malloc(HDR_LEN);
 	if (!buf) {
-		perror("set device malloc");
+		g_printerr("Allocation failed for display identifier: %s\n",
+				strerror(errno));
 		goto error;
 	}
 
 	if (!ipc_parse(buf, HDR_LEN)) {
-		fprintf(stderr, "Failed to parse header.\n");
+		perror("parse device header");
 		goto error;
 	}
 
@@ -75,14 +78,14 @@ static bool set_device() {
 	}
 
 	if (!ipc_parse(buf + HDR_LEN, len)) {
-		fprintf(stderr, "Failed to parse response.\n");
+		perror("parse device payload");
 		goto error;
 	}
 
 	const char field[] = "\"name\": \"";
 	char *start = strstr(buf + HDR_LEN, field);
 	if (!start) {
-		fprintf(stderr, "Unexpected GET_OUTPUTS response.\n");
+		g_printerr("Unexpected GET_OUTPUTS response.\n");
 		goto error;
 	}
 
@@ -119,14 +122,14 @@ static bool ipc_read(message_t type) {
 	char buf[MAX_SHORT_RESP];
 
 	if (!ipc_parse(buf, HDR_LEN)) {
-		fprintf(stderr, "Failed to parse header.\n");
+		perror("parse header");
 		return false;
 	}
 
 	memcpy(&len, buf + IPC_LEN, 4);
 
 	if (!ipc_parse(buf + HDR_LEN, len)) {
-		fprintf(stderr, "Failed to parse response.\n");
+		perror("parse payload");
 		return false;
 	}
 
@@ -145,14 +148,13 @@ static bool ipc_read(message_t type) {
  */
 bool ipc_send(message_t type, const char *payload) {
 	type = (uint32_t)type;	
-	uint32_t payload_len = payload
-				? (uint32_t)strlen(payload) : 0;
+	uint32_t payload_len = (uint32_t)strlen(payload);
 	uint8_t message[HDR_LEN + payload_len];	
 	size_t sent = 0;
 	ssize_t n;
 
 	if (payload_len > MAX_PAYLOAD) {
-		fprintf(stderr, "Payload size limit exceeded.\n");
+		g_printerr("Payload size limit exceeded.\n");
 		return false;
 	}
 
@@ -161,9 +163,9 @@ bool ipc_send(message_t type, const char *payload) {
 	memcpy(message + IPC_LEN + 4, &type, 4);
 	memcpy(message + IPC_LEN + 8, payload, payload_len);	
 	
-	while (sent < HDR_LEN + payload_len){
-		n = write(sock_fd, message + sent,
-				HDR_LEN + payload_len - sent);
+	payload_len += HDR_LEN;
+	while (sent < payload_len){
+		n = write(sock_fd, message + sent, payload_len - sent);
 		if (n < 0) {
 			perror("ipc write");
 			return false;
@@ -180,13 +182,13 @@ bool ipc_send(message_t type, const char *payload) {
 bool ipc_connect() {
 	sock_path = getenv("SWAYSOCK");
 	if (!sock_path) {
-		fprintf(stderr, "Could not find socket path.\n");
+		g_printerr("Could not find socket path.\n");
 		return false;
 	}
 
 	sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock_fd == -1) {
-		perror("ipc socket");
+		perror("ipc create socket");
 		return false;
 	}
 
@@ -197,7 +199,7 @@ bool ipc_connect() {
 
 	if (connect(sock_fd, (struct sockaddr*)&addr,
 				sizeof(addr)) == -1) {
-		perror("ipc connection");
+		perror("ipc connect");
 		close(sock_fd);
 		sock_fd = -1;
 		return false;
