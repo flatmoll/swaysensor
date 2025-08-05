@@ -9,11 +9,11 @@ An efficient [iio-sensor-proxy](https://gitlab.freedesktop.org/hadess/iio-sensor
 
 ## Contributing
 
-For building from source, please see instructions and notes in the [Makefile](./Makefile).
+To build from source, please see instructions and notes in the [Makefile](./Makefile).
 
 To report a bug or to propose a feature, please use GitHub issues.
 
-To connect or discuss the development, join the dedicated [Matrix room](https://matrix.to/#/#swaysensor:envs.net).
+To connect or to discuss the development, join the dedicated [Matrix room](https://matrix.to/#/#swaysensor:envs.net).
 
 ## Roadmap
 
@@ -22,6 +22,7 @@ To connect or discuss the development, join the dedicated [Matrix room](https://
 - [x] ~Implement handler for accelerometer.~
 - [x] ~Differentiate orientation and tilt within the accel handler.~
 - [ ] Implement error handling through GError.
+- [ ] Make handling IPC responses asynchronous.
 - [ ] Possibly add explicit user option for tilt, if so requested.
 - [ ] Define and implement an action to perform on tilt updates.
 - [ ] Implement one-time light unit polling.
