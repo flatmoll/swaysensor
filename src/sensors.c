@@ -8,62 +8,49 @@
 
 extern char device_cmd[MAX_SHORT_RESP];
 
-const char accel_cmd[4][7] = {
+static const char accel_cmd[4][7] = {
 	"normal",
 	"180",
 	"270",
 	"90",
 };
 
+/**
+ * For each orientation and tilt, the first mutually distinct
+ * element of all properties is compared, with 'undefined'
+ * moved to the end of each list as an edge case.
+ */
+static const char accel_val[5 + 6] = {
+	/* Orientation, first element. (i = 0, k -> 'n') */
+	'n',		/* _n_ormal */
+	'b',		/* _b_ottom-up */
+	'l',		/* _l_eft-up */
+	'r',		/* _r_ight-up */
+	'u',		/* _u_ndefined */
+	/* Tilt, eighth element. (i = 7, k -> 'l') */	
+	'l',		/* vertica_l_ */
+	'u',		/* tilted-_u_p */
+	'd',		/* tilted-_d_own */
+	'\0',		/* face-up_\0_ */
+	'w',		/* face-do_w_n */
+	'e',		/* undefin_e_d */
+};
+
 static void accel(const char *key, struct _GVariant *val) {
-	int k = 0;
+	int i = 0, k = 0;
 	char cmd[MAX_PAYLOAD];
 	const char *prop = g_variant_get_string(val, NULL);
 
-	/*               13
-	 * Accelerometer_O_rientation 
-	 * Accelerometer_T_ilt */
-	if (key[13] == 'O') {
-		/* Match the first element of a property. */
-		switch (prop[0]) {
-		case 'n':
-			/* k = 0; */
-			break;
-		case 'b':
-			k = 1;
-			break;
-		case 'l':
-			k = 2;
-			break;
-		case 'r':
-			k = 3;
-			break;
-		default:				/* Undefined */
-			break;
-		}
-	} else if (key[13] == 'T') {
-		/* For tilt, eighth element is mutually distinct. */
-		switch (prop[7]) {
-		case 'l':			/* vertica_l_ */
-			break;
-		case 'u':			/* tilted-_u_p */
-			break;
-		case 'd':			/* tilted-_d_own */
-			break;
-		case '\0':			/* face-up_\0_ */
-			break;
-		case 'w':			/* face-do_w_n */
-			break;
-		default:				/* Undefined */
-			break;
-		}
-		printf("Tilt placeholder.\n");
-		return;
-	} else {
-		fprintf(stderr, "Debug unknown accel.\n");
-		return;
+	if (key[13] == 'T') {
+		i = 7;
+		k = 5;
+		return; /* Change cmd instead when implementing tilt. */
 	}
 
+	while (prop[i] != accel_val[k]) k++;
+
+
+	
 
 	/* ......device_len->|....+10->|....+7 (k=0)->| + '\0' => +18
 	 * output {identifier} transform {degree value}
