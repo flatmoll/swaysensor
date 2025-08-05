@@ -1,11 +1,11 @@
 # swaysensor
 
-[iio-sensor-proxy](https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/) integration for window managers. Initial development stage.
+An efficient [iio-sensor-proxy](https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/) integration for window managers. Initial development stage.
 
 ## Support
 
-- Sensors: accelerometer (orientation).
-- Window managers: Sway.
+- **Features**: auto-rotation.
+- **Window managers**: Sway.
 
 ## Contributing
 
@@ -21,6 +21,7 @@ To connect or discuss the development, join the dedicated [Matrix room](https://
 - [ ] Implement handler for ambient light sensor.
 - [x] ~Implement handler for accelerometer.~
 - [x] ~Differentiate orientation and tilt within the accel handler.~
+- [ ] Implement error handling through GError.
 - [ ] Possibly add explicit user option for tilt, if so requested.
 - [ ] Define and implement an action to perform on tilt updates.
 - [ ] Implement one-time light unit polling.
