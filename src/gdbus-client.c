@@ -28,9 +28,6 @@ extern bool devices[];
  * as well as handler functions. property_connections stores
  * identifiers for connections that listen to property changes,
  * in order to release these connections upon cleaning up.
- *
- * is_light_vendor indicates whether the brightness unit is
- * vendor-defined (true, default) or SI lux (false).
  */
 static const char * const claim_cmd[NUM_DEV] = {
 	"ClaimAccelerometer",
@@ -50,8 +47,6 @@ static GDBusConnection *connection;
 static GDBusProxy *proxy;
 static GVariant *result;
 static GError *error;
-
-bool is_light_vendor = true;
 
 /**
  * Closes connection to GDBus or cleans up an unsuccessful one,
