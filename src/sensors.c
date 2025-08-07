@@ -5,6 +5,7 @@
 #include "ipc-client.h"
 
 #define ROTATION "transform"
+#define POWER "power"
 
 extern size_t device_len;
 extern char device_cmd[MAX_SHORT_RESP];
@@ -38,6 +39,16 @@ static const char accel_val[5 + 6] = {
 	'e',		/* undefin_e_d */
 };
 
+/**
+ * Values for proximity sensor. Display power.
+ * gboolean near = TRUE = 1 => prox_val[near] -> "off"
+ * gboolean near = FALSE = 0 => prox_val[near] -> "on"
+ */
+static const char prox_val[2][4] = {
+	"on",
+	"off",
+};
+
 static void accel(const char *key, struct _GVariant *val) {
 	int i = 0, k = 0;
 	char cmd[MAX_PAYLOAD];
@@ -53,10 +64,12 @@ static void accel(const char *key, struct _GVariant *val) {
 
 	/* ......device_len->|....+10->|....+7 (k=0)->| + '\0' => +18
 	 * output {identifier} transform {degree value}
+	 *
+	 * i <= MAX_PAYLOAD is guaranteed by
+	 * MAX_SHORT_RESP + 18 = 96 + 18 = 114 = MAX_PAYLOAD.
 	 */
-	i = snprintf(cmd, device_len + 18, "%s %s %s",
-			device_cmd, ROTATION, accel_cmd[k]);
-	if (i == 0 || i > MAX_PAYLOAD) {
+	if (snprintf(cmd, device_len + 18, "%s %s %s",
+			device_cmd, ROTATION, accel_cmd[k]) == 0) {
 		g_printerr("Failed to write accel payload.\n");
 		return;
 	}
@@ -70,7 +83,17 @@ static void light(const char *key, struct _GVariant *val) {
 }
 
 static void proximity(const char *key, struct _GVariant *val) {
-	printf("Proximity got %s.\n", key);	
+	char cmd[MAX_PAYLOAD];
+	const gboolean near = g_variant_get_boolean(val);
+
+	if (snprintf(cmd, device_len + 12, "%s %s %s",
+			device_cmd, POWER, prox_val[near]) == 0) {
+		g_printerr("Failed to write proximity payload.\n");
+		return;
+	}
+
+	if (!ipc_send(RUN_COMMAND, cmd))
+		g_printerr("Failed to send command.\n");
 }
 
 /**
