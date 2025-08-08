@@ -20,16 +20,14 @@ To connect or to discuss the development, join the dedicated [Matrix room](https
 - [x] ~Implement handler for proximity sensor.~
 - [x] ~Implement handler for ambient light sensor.~
 - [x] ~Implement handler for accelerometer.~
-- [x] ~Differentiate orientation and tilt within the accel handler.~
-- [ ] Implement error handling through GError.
-- [ ] Make handling IPC responses asynchronous.
-- [ ] Possibly add explicit user option for tilt, if so requested.
-- [ ] Define and implement an action to perform on tilt updates.
+- [x] ~Differentiate orientation and tilt within accel handler.~
 - [x] ~Determine unit type within light handler.~
-- [ ] Gather light metrics => someone with working AL sensor needed.
-- [ ] Add and register compass (separate destination).
-- [ ] Define and implement action to perform on compass updates.
 - [x] ~Use common lock file instead of locked PID file.~
-- [ ] Implement WM determination mechanism.
+- [x] ~Implement error handling through GError (gdbus-client).~
+- [ ] Make handling IPC responses asynchronous.
+- [ ] Add and register compass (separate destination).
+- [ ] User polling: action to perform on tilt updates.
+- [ ] User polling: gather relevant ambient light metrics.
+- [ ] User polling: action to perform on compass updates.
 - [ ] Add support for i3.
-- [ ] Make a plan on how to implement support for other WMs.
+- [ ] Add support for Hyprland.

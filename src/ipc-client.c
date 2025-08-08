@@ -57,8 +57,7 @@ static bool set_device() {
 	uint32_t len;
 	char *buf = malloc(HDR_LEN);
 	if (!buf) {
-		g_printerr("Allocation failed for display identifier: %s\n",
-				strerror(errno));
+		perror("set device malloc");
 		goto error;
 	}
 

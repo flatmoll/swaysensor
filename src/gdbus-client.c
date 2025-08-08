@@ -58,6 +58,8 @@ static GError *error;
  * clean up as much as possible.
  */
 void gdbus_close() {
+	GError *error = NULL;
+
 	for (int i = 0; i < NUM_DEV; i++) {
 		if (devices[i]) {
 			result = g_dbus_proxy_call_sync(
@@ -81,9 +83,6 @@ void gdbus_close() {
 
 	g_dbus_connection_signal_unsubscribe(connection, prop_conn);
 
-	g_clear_error(&error);
-	error = NULL;
-
 	g_variant_unref(result);
 	result = NULL;
 
@@ -104,6 +103,8 @@ void gdbus_close() {
  * fail, unless there are no devices registered at all.
  */
 bool gdbus_connect() {
+	GError *error = NULL;
+
 	connection = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error);
 	if (!connection) {
 		g_printerr("gdbus connect: %s\n", error->message);
