@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <limits.h>
 #include <string.h>
 #include <gio/gio.h>
 
@@ -13,11 +12,12 @@
 extern size_t device_len;
 extern char device_cmd[MAX_SHORT_RESP];
 
-static const char accel_cmd[4][7] = {
+static const char accel_cmd[5][7] = {
 	"normal",
 	"180",
 	"270",
 	"90",
+	"normal", /* If undefined, return to normal. */
 };
 
 /**
@@ -106,7 +106,7 @@ static void accel(const char *key, struct _GVariant *val) {
  */
 static void light(const char *key, struct _GVariant *val) {
 	if (unit == UNKNOWN) {
-	/*...........LightLevel_U_nit */		
+	/* LightLevel_U_nit */		
 		if (key[10] == 'U') {
 			const char *u = g_variant_get_string(val, NULL);
 			unit = (strchr(u, 'l')) ? SI_LUX : VENDOR;
