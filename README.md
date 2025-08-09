@@ -25,9 +25,8 @@ To connect or to discuss the development, join the dedicated [Matrix room](https
 - [x] ~Use common lock file instead of locked PID file.~
 - [x] ~Implement error handling through GError (gdbus-client).~
 - [ ] Make handling IPC responses asynchronous.
-- [ ] Add and register compass (separate destination).
+- [x] ~Compass (unavailable, proxy defaults to Geoclue).~
 - [ ] User polling: action to perform on tilt updates.
 - [ ] User polling: gather relevant ambient light metrics.
-- [ ] User polling: action to perform on compass updates.
 - [ ] Add support for i3.
 - [ ] Add support for Hyprland.
