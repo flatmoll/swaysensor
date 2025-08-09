@@ -1,6 +1,6 @@
 /**
  * SPDX-License-Identifier: MIT
- * swaysensor: integration of iio-sensor-proxy into SwayWM.
+ * swaysensor: integration of iio-sensor-proxy for window managers.
  * Copyright (C) 2025 Fuad Veliev <fuad@grrlz.net>
  */
 
@@ -15,13 +15,7 @@
 #include "ipc-client.h"
 #include "gdbus-client.h"
 
-/**
- * Device polling user options.
- * If true, a polling request will be sent to the proxy.
- * An entry may be set back to false by gdbus_connect()
- * if the corresponding device is unavailable. This prevents
- * the release of unclaimed devices during a termination.
- */
+/* Set by user, and if connection fails, reverted by gdbus_connect(). */
 bool devices[NUM_DEV] = {
 	false, /* accelerometer */
 	false, /* light level */
@@ -37,20 +31,12 @@ static gboolean g_handle(gpointer data) {
 	return G_SOURCE_REMOVE;
 }
 
-/**
- * Such a big and varied main function provides a concise visual
- * list of nearly everything (on a high level) that has been done
- * before the program entered a listening state.
- *
- * The program uses a lock file in $XDG_RUNTIME_DIR to prevent
- * accidental multiple launches.
- */
 int main(int argc, char **argv) {
 	if (argc == 1) {
 		printf("Usage: %s [OPTIONS]\n"
-			"    ""-a  enable accelerometer\n"
-			"    ""-l  enable ambient light sensor\n"
-			"    ""-p  enable proximity sensor\n",
+			"  ""-a  poll accelerometer\n"
+			"  ""-l  poll ambient light sensor\n"
+			"  ""-p  poll proximity sensor\n",
 			argv[0]);
 		return EXIT_SUCCESS;
 	}
@@ -104,8 +90,8 @@ int main(int argc, char **argv) {
 		return EXIT_FAILURE;
 	}
 
-	/* Due to brightnessctl, display identifier is only used
-	 * with accelerometer and proximity sensor. */
+	/* Avoid polling IPC for display if all we want is
+	 * brightness control through brightnessctl. */
 	if (devices[0] || devices[2]) {
 		if (!ipc_send(GET_OUTPUTS, "")) {
 			g_printerr("Failed to get display identifier.\n");

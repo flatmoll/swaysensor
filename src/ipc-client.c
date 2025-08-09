@@ -47,14 +47,8 @@ static bool ipc_parse(char *buf, size_t len) {
 	return true;
 }
 
-/**
- * Part of this function resembles ipc_read(), but because
- * the length of the output of GET_OUTPUTS may vary significantly
- * across devices, this type of reponse is processed on the heap.
- *
- * This function currently obtains an identifier of the first output
- * among those returned by SwayWM - it is assumed to be the primary one.
- */
+/* Currently an identifier of the first listed output is obtained.
+ * Memory is allocated because output length varies significantly. */
 static bool set_device() {
 	uint32_t len;
 	char *buf = malloc(HDR_LEN);
@@ -93,8 +87,6 @@ static bool set_device() {
 	start += sizeof(field) - 1; /* exclude '\0' */
 	char *end = strchr(start, '\"');
 
-	/* Open question: maybe cast strlen() to a char, given that
-	 * MAX_SHORT_RESP already intdroduces size constraint? */
 	device_len = end ? (size_t)(end - start) : strlen(start);
 	memcpy(device_cmd, OUT_CMD, OUT_LEN);
 	memcpy(device_cmd + OUT_LEN, start, device_len);
@@ -110,11 +102,6 @@ error:
 	return false;
 }
 
-/**
- * This function asks ipc_parse() to parse header, deduces length,
- * and then asks the same function to read payload.
- * Checks whether WM reported success.
- * */
 static bool ipc_read(message_t type) {
 	if (type == 3)
 		return set_device();
@@ -137,16 +124,7 @@ static bool ipc_read(message_t type) {
 	return strstr(buf + HDR_LEN, "\"success\": true") != NULL;
 }
 
-/**
- * Messages, with the maximum size of HDR_LEN + MAX_PAYLOAD = 128 bytes,
- * are supposed to be short and are written to socket from the stack.
- * Therefore, the while loop was added just in case something prevents
- * write() to deliver a message even so short.
- *
- * SwayWM IPC socket already accepts commands and returns responses
- * in _native byte order_, thus the only compatibility addition here
- * is to use unsigned integers with the length of 4 bytes.
- */
+/* AFAIK native byte order is supported by most window managers. */
 bool ipc_send(message_t type, const char *payload) {
 	type = (uint32_t)type;	
 	uint32_t payload_len = (uint32_t)strlen(payload);

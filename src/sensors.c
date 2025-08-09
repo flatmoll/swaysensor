@@ -20,11 +20,9 @@ static const char accel_cmd[5][7] = {
 	"normal", /* If undefined, return to normal. */
 };
 
-/**
- * For each orientation and tilt, the first mutually distinct
- * element of all properties is compared, with 'undefined'
- * moved to the end of each list as an edge case.
- */
+/* For both orientation and tilt, the first mutually distinct
+ * element of all properties is compared, while 'undefined'
+ * is moved to the end of each list as an edge case. */
 static const char accel_val[5 + 6] = {
 	/* Orientation, first element. (i = 0, k -> 'n') */
 	'n',		/* _n_ormal */
@@ -56,11 +54,6 @@ static double light_max[2] = {
 	1200.0,		/* unit = SI_LUX = 1 */
 };
 
-/**
- * Values for proximity sensor. Display power.
- * gboolean near = TRUE = 1 => prox_val[near] -> "off"
- * gboolean near = FALSE = 0 => prox_val[near] -> "on"
- */
 static const char prox_val[2][4] = {
 	"on",
 	"off",
@@ -81,6 +74,7 @@ static void accel(const char *key, struct _GVariant *val) {
 
 	/* This expression does not exceed MAX_PAYLOAD, because
 	 * sizeof(device) + ... + 1 = 96 + 18 = 114 = MAX_PAYLOAD.
+	 * The same logic follows in other handlers.
 	 * 
 	 * Since trailing nul was accounted for twice by using sizeof()
 	 * two times, only account for one of the literal spaces (+1). */
@@ -99,15 +93,11 @@ static void accel(const char *key, struct _GVariant *val) {
 		g_printerr("[Accelerometer] IO socket operation failed.\n");
 }
 
-/**
- * Since a{sv} is iterated over inside the generic handler,
- * either light unit or light metric will be passed here, but not both.
- * Therefore, check the key. If unit has already been set, return.
- */
+/* Since a{sv} is iterated over inside the generic handler,
+ * either light unit or level will be passed here, but not both. */
 static void light(const char *key, struct _GVariant *val) {
 	if (unit == UNKNOWN) {
-	/* LightLevel_U_nit */		
-		if (key[10] == 'U') {
+		if (key[10] == 'U') { /* LightLevel_U_nit */
 			const char *u = g_variant_get_string(val, NULL);
 			unit = (strchr(u, 'l')) ? SI_LUX : VENDOR;
 		} else return;
@@ -151,11 +141,6 @@ static void proximity(const char *key, struct _GVariant *val) {
 		g_printerr("[Proximity] IO socket operation failed.\n");
 }
 
-/**
- * To avoid whole string comparisons, several API-educated guesses
- * are made here and in the callee  branch functions, based on
- * the exact property key string knowledge.
- */
 void sensor_handler(
 	struct _GDBusConnection *conn,
 	const char *sender,

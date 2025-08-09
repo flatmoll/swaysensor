@@ -2,11 +2,6 @@
  * SPDX-License-Identifier: MIT
  * GNOME Desktop Bus Client: communication with proxy via D-Bus protocol.
  * Copyright (C) 2025 Fuad Veliev <fuad@grrlz.net>
- *
- * gdbus_connect() and gdbus_close(), perform step-by-step connection
- * and termination of such, respectively. Neither of them is anync-safe.
- * Instead, the structure of main (main.c) guarantees that neither
- * of them is called while there exists an active GMainLoop.
  */
 
 #include <stdio.h>
@@ -24,10 +19,9 @@
 extern bool devices[];
 
 /**
- * Pointers to commands to Claim and Release proxy methods,
- * as well as handler functions. property_connections stores
- * identifiers for connections that listen to property changes,
- * in order to release these connections upon cleaning up.
+ * Pointers to commands to Claim and Release proxy methods.
+ * prop_conn stores an identifier for the connection that listen
+ * to property changes, in order to release it when cleaning up.
  */
 static const char * const claim_cmd[NUM_DEV] = {
 	"ClaimAccelerometer",
@@ -48,15 +42,6 @@ static GDBusProxy *proxy;
 static GVariant *result;
 static GError *error;
 
-/**
- * Closes connection to GDBus or cleans up an unsuccessful one,
- * in the order that is reverse to one of gdbus_connect().
- *
- * If releasing a device yields an unexpected error,
- * print it but do not return failure, since this function
- * is to be run shortly before program exits and should
- * clean up as much as possible.
- */
 void gdbus_close() {
 	for (int i = 0; i < NUM_DEV; i++) {
 		if (devices[i]) {
@@ -91,15 +76,8 @@ void gdbus_close() {
 	connection = NULL;
 }
 
-/**
- * Performs a connection to net.hadess.SensorProxy via GDBus.
- * Returns false on general connection failures or if no
- * devices were registered.
- *
- * If a device could not be registered, either because it is not present
- * or because of a bug in this program, print the error, but do not
- * fail, unless there are no devices registered at all.
- */
+/* FIXME Poll first, and if device is not present,
+ * do not create empty connections. */
 bool gdbus_connect() {
 	connection = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error);
 	if (!connection) {

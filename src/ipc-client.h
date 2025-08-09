@@ -5,7 +5,8 @@
 #define MAX_HYPR_PATH	100
 
 /**
- * Select Sway IPC message types.
+ * Select IPC message types.
+ * FIXME Expand to account for Hyprland.
  */
 typedef enum {
 	RUN_COMMAND = 0,
@@ -19,7 +20,7 @@ typedef enum {
 bool ipc_connect();
 
 /**
- * Send one of Sway IPC message types.
+ * Send one of IPC message types.
  * @param type message type
  * @param payload payload
  * @return false on error
