@@ -2,6 +2,7 @@
 
 #define MAX_PAYLOAD	114
 #define MAX_SHORT_RESP	96
+#define MAX_HYPR_PATH	100
 
 /**
  * Select Sway IPC message types.

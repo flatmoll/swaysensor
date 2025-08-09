@@ -5,7 +5,7 @@ An efficient [iio-sensor-proxy](https://gitlab.freedesktop.org/hadess/iio-sensor
 ## Support
 
 - **Features**: auto-rotation, ambient light (testing needed), proximity.
-- **Window managers**: Sway.
+- **Window managers**: Sway, i3.
 
 ## Contributing
 
@@ -28,5 +28,5 @@ To connect or to discuss the development, join the dedicated [Matrix room](https
 - [x] ~Compass (unavailable, proxy defaults to Geoclue).~
 - [ ] User polling: action to perform on tilt updates.
 - [ ] User polling: gather relevant ambient light metrics.
-- [ ] Add support for i3.
+- [x] Add support for i3.
 - [ ] Add support for Hyprland.

@@ -28,6 +28,8 @@
 
 extern int sock_fd;
 static char *sock_path;
+static char hypr_env[MAX_HYPR_PATH];
+
 size_t device_len;
 char device_cmd[MAX_SHORT_RESP];
 
@@ -175,11 +177,38 @@ bool ipc_send(message_t type, const char *payload) {
 	return ipc_read(type);
 }
 
-/**
- * This function is only called at the initial (setup) stage.
- */
+static char *determine_environment() {
+	char *env = NULL;
+
+	if ((env = getenv("SWAYSOCK")))
+		return env;
+	else if ((env = getenv("I3SOCK")))
+		return env;
+	else if ((env = getenv("HYPRLAND_INSTANCE_SIGNATURE"))) {
+		char *dir = getenv("XDG_RUNTIME_DIR");
+		if (!dir)
+			return NULL;
+
+		if (snprintf(hypr_env, MAX_HYPR_PATH,
+				"%s/hypr/%s/.socket.sock",
+				dir, env) == 0) {
+			g_printerr("Failed to set Hyprland environment.");
+			return NULL;
+		}
+		
+		env = hypr_env;
+		return env;
+	}
+	/* FIXME Hyprland
+	 * Define custom commands. Move literals from ipc_read()
+	 * and set_device() into a static array controlled by this
+	 * function. Move handler commands into a global array. */
+
+	return env;
+}
+
 bool ipc_connect() {
-	sock_path = getenv("SWAYSOCK");
+	sock_path = determine_environment();
 	if (!sock_path) {
 		g_printerr("Could not find socket path.\n");
 		return false;
