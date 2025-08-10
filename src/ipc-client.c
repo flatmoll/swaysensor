@@ -126,6 +126,8 @@ static bool ipc_read(message_t type) {
 
 /* AFAIK native byte order is supported by most window managers. */
 bool ipc_send(message_t type, const char *payload) {
+	static GMutex mutex;
+
 	type = (uint32_t)type;	
 	uint32_t payload_len = (uint32_t)strlen(payload);
 	uint8_t message[HDR_LEN + payload_len];	
@@ -141,8 +143,9 @@ bool ipc_send(message_t type, const char *payload) {
 	memcpy(message + IPC_LEN, &payload_len, 4);
 	memcpy(message + IPC_LEN + 4, &type, 4);
 	memcpy(message + IPC_LEN + 8, payload, payload_len);	
-	
 	payload_len += HDR_LEN;
+
+	g_mutex_lock(&mutex);
 	while (sent < payload_len){
 		n = write(sock_fd, message + sent, payload_len - sent);
 		if (n < 0) {
@@ -151,6 +154,7 @@ bool ipc_send(message_t type, const char *payload) {
 		}
 		sent += n;
 	}
+	g_mutex_unlock(&mutex);
 
 	return ipc_read(type);
 }
