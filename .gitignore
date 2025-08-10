@@ -1,8 +1,5 @@
-# Ignore output files, Emacs backups,
-# build directory, and final executable.
-# Add entries as needed.
-
 *.[oa]
 *~
 build/
 swaysensor
+gmon.out

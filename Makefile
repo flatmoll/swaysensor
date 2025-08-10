@@ -1,14 +1,13 @@
-# The purpose of this Makefile is to build and syntax check the program.
+# SPDX-License-Identifier: MIT
+# Makefile: assistance with building, syntax checking, and profiling.
+# Copyright (C) 2025 Fuad Veliev <fuad@grrlz.net>
 #
 # To customize C or linker flags, edit $(CFLAGS) or $(LDFLAGS),
-# or invoke the compiler manually. Please do not edit $(ALLCFLAGS);
-# they ensure the bare minimum required for successfull compilation.
+# respectively. Please do not edit $(ALLCFLAGS) or $(LDLIBS) -
+# they ensure the minimum required for a successful compilation.
 #
 # Use 'make clean' to remove both executable and build directory.
 # Use 'make check' to run preprocessor with all warnings enabled.
-# 
-# This program is written in C23; please use GCC version 15 or above,
-# or GCC versions 9 through 14 with an experimental '-std=c2x' flag.
 
 SHELL		:= /bin/sh
 CC		:= gcc
@@ -20,7 +19,7 @@ TARGET		:= swaysensor
 CFLAGS		:= -Wall -g -pg
 ALLCFLAGS	:= $(shell pkg-config --cflags gio-2.0 glib-2.0)
 
-LDFLAGS		:= 
+LDFLAGS		:= -pg
 LDLIBS		:= $(shell pkg-config --libs gio-2.0 glib-2.0)
 
 SOURCES		:= $(wildcard $(SRCDIR)/*.c)
