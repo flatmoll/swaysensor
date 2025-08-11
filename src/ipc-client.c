@@ -149,6 +149,7 @@ bool ipc_send(message_t type, const char *payload) {
 	while (sent < payload_len){
 		n = write(sock_fd, message + sent, payload_len - sent);
 		if (n < 0) {
+			g_mutex_unlock(&mutex);
 			perror("ipc write");
 			return false;
 		}
