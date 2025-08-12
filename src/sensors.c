@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <gio/gio.h>
 
@@ -169,7 +170,7 @@ void sensor_handler(
 	const char *interface,
 	const char *signal,
 	struct _GVariant *data,
-	void *
+	void * user_data
 ) {
 	/* str and iter_null are only used
 	 * for g_variant_get() to split the data properly. */	

@@ -4,8 +4,7 @@
  * Copyright (C) 2025 Fuad Veliev <fuad@grrlz.net>
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdbool.h>
 #include <gio/gio.h>
 
 #include "gdbus-client.h"

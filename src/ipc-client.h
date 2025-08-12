@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 
 #define MAX_PAYLOAD	178
 #define MAX_SHORT_RESP	96

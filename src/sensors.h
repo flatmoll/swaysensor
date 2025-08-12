@@ -12,5 +12,5 @@ void sensor_handler(
 	const char *interface,
 	const char *signal,
 	struct _GVariant *params,
-	void *
+	void * user_data
 );

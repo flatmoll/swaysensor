@@ -39,7 +39,7 @@ $(BUILDDIR):
 all: $(TARGET)
 
 clean:
-	rm -r $(BUILDDIR) $(TARGET)
+	rm -r $(BUILDDIR)/* $(TARGET)
 
 check:
 	$(CC) -Wall -Wextra -pedantic -fsyntax-only $(SOURCES)
