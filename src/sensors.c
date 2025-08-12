@@ -5,19 +5,50 @@
 #include "sensors.h"
 #include "ipc-client.h"
 
-#define POWER		"power"
-#define ROTATION	"transform"
-#define BRIGHTNESS	"brightnessctl set"
+#define BRIGHTNESS "brightnessctl set"
 
+extern unsigned int wm_spec;
+extern unsigned int wm_accel;
 extern size_t device_len;
 extern char device_cmd[MAX_SHORT_RESP];
 
-static const char accel_cmd[5][7] = {
+static const char wm_cmd[8][32] = {
+	/* Sway, i3 */
+	"output",
+	"transform",
+	"power on",	
+	"power off",
+	/* Hyprland */
+	"keyword monitor",
+	",preferred,auto,auto,transform,",
+	",preferred,auto,auto",
+	",disable",	
+};
+
+// keyword monitor {ID},preferred,auto,auto,transform,{0,2,1,3}
+static const char accel_cmd[22][12] = {
 	"normal",
 	"180",
 	"270",
 	"90",
-	"normal", /* If undefined, return to normal. */
+	"normal",
+	"sway-tilt-0",
+	"sway-tilt-1",
+	"sway-tilt-2",
+	"sway-tilt-3",
+	"sway-tilt-4",
+	"sway-tilt-0",
+	"0",
+	"2",
+	"1",
+	"3",
+	"0",
+	"hypr-tilt-0",
+	"hypr-tilt-1",
+	"hypr-tilt-2",
+	"hypr-tilt-3",
+	"hypr-tilt-4",
+	"hypr-tilt-0",
 };
 
 /* For both orientation and tilt, the first mutually distinct
@@ -54,11 +85,6 @@ static double light_max[2] = {
 	1200.0,		/* unit = SI_LUX = 1 */
 };
 
-static const char prox_val[2][4] = {
-	"on",
-	"off",
-};
-
 static void accel(const char *key, struct _GVariant *val) {
 	int i = 0, k = 0;
 	char cmd[MAX_PAYLOAD];
@@ -72,18 +98,13 @@ static void accel(const char *key, struct _GVariant *val) {
 
 	while (prop[i] != accel_val[k]) k++;
 
-	/* This expression does not exceed MAX_PAYLOAD, because
-	 * sizeof(device) + ... + 1 = 96 + 18 = 114 = MAX_PAYLOAD.
-	 * The same logic follows in other handlers.
-	 * 
-	 * Since trailing nul was accounted for twice by using sizeof()
-	 * two times, only account for one of the literal spaces (+1). */
 	if (snprintf(cmd,
-		device_len + sizeof(ROTATION) + sizeof(accel_cmd[0]) + 1,
-		"%s %s %s",
+		device_len + 2*sizeof(wm_cmd[0]) + sizeof(accel_cmd[0]),
+		"%s %s %s %s",
+		wm_cmd[wm_spec],
 		device_cmd,
-		ROTATION,
-		accel_cmd[k]) == 0)
+		wm_cmd[wm_spec + 1],
+		accel_cmd[wm_accel + k]) == 0)
 	{
 		g_printerr("[Accelerometer] Could not write payload.\n");
 		return;
@@ -127,11 +148,11 @@ static void proximity(const char *key, struct _GVariant *val) {
 	const gboolean near = g_variant_get_boolean(val);
 
 	if (snprintf(cmd,
-		device_len + sizeof(POWER) + sizeof(prox_val[1]) + 1,
+		device_len + 2*sizeof(wm_cmd[0]),
 		"%s %s %s",
+		wm_cmd[wm_spec],
 		device_cmd,
-		POWER,
-		prox_val[near]) == 0)
+		wm_cmd[wm_spec + 2 + near]) == 0)
 	{
 		g_printerr("[Proximity] Could not write payload.\n");
 		return;
@@ -168,9 +189,6 @@ void sensor_handler(
 			break;
 		case 'L':
 			light(key, val);
-			break;
-		case 'C':
-			/* Add compass handler. */
 			break;
 		case 'P':
 			proximity(key, val);

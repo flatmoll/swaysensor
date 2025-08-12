@@ -23,15 +23,15 @@
 #define IPC_MAGIC	"i3-ipc"
 #define IPC_LEN		6
 #define HDR_LEN		14
-#define OUT_CMD		"output "
-#define OUT_LEN		7
 
 extern int sock_fd;
 static char *sock_path;
-static char hypr_env[MAX_HYPR_PATH];
+unsigned int wm_spec;
+unsigned int wm_accel;
 
 size_t device_len;
 char device_cmd[MAX_SHORT_RESP];
+char hypr_env[MAX_HYPR_PATH];
 
 static bool ipc_parse(char *buf, size_t len) {
 	size_t received = 0;
@@ -50,6 +50,12 @@ static bool ipc_parse(char *buf, size_t len) {
 /* Currently an identifier of the first listed output is obtained.
  * Memory is allocated because output length varies significantly. */
 static bool set_device() {
+	const char wm_dev_field[2][10] = {
+		"\"name\": \"",
+		"Monitor",
+	};
+	unsigned const char wm_dev_char[] = { 34, 32, };
+
 	uint32_t len;
 	char *buf = malloc(HDR_LEN);
 	if (!buf) {
@@ -77,20 +83,18 @@ static bool set_device() {
 		goto error;
 	}
 
-	const char field[] = "\"name\": \"";
-	char *start = strstr(buf + HDR_LEN, field);
+	bool wm_dev_id = (wm_spec == 4);
+	char *start = strstr(buf + HDR_LEN, wm_dev_field[wm_dev_id]);
 	if (!start) {
-		g_printerr("Unexpected GET_OUTPUTS response.\n");
+		g_printerr("Unexpected output information format.\n");
 		goto error;
 	}
 
-	start += sizeof(field) - 1; /* exclude '\0' */
-	char *end = strchr(start, '\"');
+	start += strlen(wm_dev_field[wm_dev_id]);
+	char *end = strchr(start, wm_dev_char[wm_dev_id]);
 
 	device_len = end ? (size_t)(end - start) : strlen(start);
-	memcpy(device_cmd, OUT_CMD, OUT_LEN);
-	memcpy(device_cmd + OUT_LEN, start, device_len);
-	device_len += OUT_LEN;
+	memcpy(device_cmd, start, device_len);
 	device_cmd[device_len] = '\0';
 
 	free(buf);
@@ -163,24 +167,34 @@ bool ipc_send(message_t type, const char *payload) {
 static char *determine_environment() {
 	char *env = NULL;
 
-	if ((env = getenv("SWAYSOCK")))
-		return env;
-	else if ((env = getenv("I3SOCK")))
-		return env;
-	else if ((env = getenv("HYPRLAND_INSTANCE_SIGNATURE"))) {
+	if ((env = getenv("SWAYSOCK"))) {
+		wm_spec = 0;
+		wm_accel = 0;
+	} else if ((env = getenv("I3SOCK"))) {
+		wm_spec = 0;
+		wm_accel = 0;
+	} else if ((env = getenv("HYPRLAND_INSTANCE_SIGNATURE"))) {
 		char *dir = getenv("XDG_RUNTIME_DIR");
 		if (!dir)
 			return NULL;
 
-		if (snprintf(hypr_env, MAX_HYPR_PATH,
-				"%s/hypr/%s/.socket.sock",
-				dir, env) == 0) {
-			g_printerr("Failed to set Hyprland environment.");
+		if (snprintf(hypr_env,
+			MAX_HYPR_PATH,
+			"%s/hypr/%s/.socket.sock",
+			dir,
+			env) == 0)
+		{
+			g_printerr("Failed to set Hyprland environment.\n");
 			return NULL;
 		}
+		printf("%s\n", hypr_env);
 		
+		wm_spec = 4;
+		wm_accel = 11;
 		env = hypr_env;
-		return env;
+	} else {
+		g_printerr("Unmatched WM environment.\n");
+		return NULL;
 	}
 	/* FIXME Hyprland
 	 * Define custom commands. Move literals from ipc_read()
