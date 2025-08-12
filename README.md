@@ -15,18 +15,8 @@ To report a bug or to propose a feature, please use GitHub issues.
 
 To connect or to discuss the development, join the dedicated [Matrix room](https://matrix.to/#/#swaysensor:envs.net).
 
-## Roadmap
+## Active tasks
 
-- [x] ~Implement handler for proximity sensor.~
-- [x] ~Implement handler for ambient light sensor.~
-- [x] ~Implement handler for accelerometer.~
-- [x] ~Differentiate orientation and tilt within accel handler.~
-- [x] ~Determine unit type within light handler.~
-- [x] ~Use common lock file instead of locked PID file.~
-- [x] ~Implement error handling through GError (gdbus-client).~
-- [ ] Make handling IPC responses asynchronous.
-- [x] ~Compass (unavailable, proxy defaults to Geoclue).~
+- [ ] Implement command support for Hyprland.
 - [ ] User polling: action to perform on tilt updates.
 - [ ] User polling: gather relevant ambient light metrics.
-- [x] Add support for i3.
-- [ ] Add support for Hyprland.
