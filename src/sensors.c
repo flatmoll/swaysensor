@@ -1,3 +1,9 @@
+/**
+ * SPDX-License-Identifier: MIT
+ * Sensor handlers: process sensor proxy readings on GDBus callbacks.
+ * Copyright (C) 2025 Fuad Veliev <fuad@grrlz.net>
+ */
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -8,26 +14,35 @@
 
 #define BRIGHTNESS "brightnessctl set"
 
+/* Throughout the property/command selection logic, integers
+ * (wm_spec, wm_accel, i, k, etc.) are used as array indices to
+ * navigate across different properties and their appropriate commands.
+ * Booleans are added to them to make final binary choices. */
+
 extern unsigned int wm_spec;
 extern unsigned int wm_accel;
 extern size_t device_len;
 extern char device_cmd[MAX_SHORT_RESP];
 
-static const char wm_cmd[8][32] = {
+/* Generic parts and proximity modifiers for Sway/i3 and Hyprland. */
+static const char wm_cmd[5 + 5][32] = {
 	/* Sway, i3 */
 	"output",
 	"transform",
+	"sway-tilt-cmd",
 	"power on",	
 	"power off",
 	/* Hyprland */
 	"keyword monitor",
 	",preferred,auto,auto,transform,",
+	"hypr-tilt-cmd",
 	",preferred,auto,auto",
-	",disable",	
+	",disable",
 };
 
-// keyword monitor {ID},preferred,auto,auto,transform,{0,2,1,3}
-static const char accel_cmd[22][12] = {
+/* Orientation and tilt modifiers for Sway/i3 and Hyprland. */
+static const char accel_cmd[5 + 6 + 5 + 6][12] = {
+	/* Sway, i3 */
 	"normal",
 	"180",
 	"270",
@@ -39,6 +54,7 @@ static const char accel_cmd[22][12] = {
 	"sway-tilt-3",
 	"sway-tilt-4",
 	"sway-tilt-0",
+	/* Hyprland */
 	"0",
 	"2",
 	"1",
@@ -52,17 +68,15 @@ static const char accel_cmd[22][12] = {
 	"hypr-tilt-0",
 };
 
-/* For both orientation and tilt, the first mutually distinct
- * element of all properties is compared, while 'undefined'
- * is moved to the end of each list as an edge case. */
+/* Mutually distinct chars in property values of accelerometer readings. */
 static const char accel_val[5 + 6] = {
-	/* Orientation, first element. (i = 0, k -> 'n') */
+	/* Orientation, first (i = 0) element. (k -> 'n') */
 	'n',		/* _n_ormal */
 	'b',		/* _b_ottom-up */
 	'l',		/* _l_eft-up */
 	'r',		/* _r_ight-up */
 	'u',		/* _u_ndefined */
-	/* Tilt, eighth element. (i = 7, k -> 'l') */	
+	/* Tilt, eighth (i = 7) element. (k -> 'l') */	
 	'l',		/* vertica_l_ */
 	'u',		/* tilted-_u_p */
 	'd',		/* tilted-_d_own */
@@ -88,13 +102,15 @@ static double light_max[2] = {
 
 static void accel(const char *key, struct _GVariant *val) {
 	int i = 0, k = 0;
+	bool is_tilt = false;
 	char cmd[MAX_PAYLOAD];
 	const char *prop = g_variant_get_string(val, NULL);
 
 	if (key[13] == 'T') {
 		i = 7;
 		k = 5;
-		return; /* Change cmd instead when implementing tilt. */
+		is_tilt = true;
+		return; /* Remove when defining commands for tilt. */
 	}
 
 	while (prop[i] != accel_val[k]) k++;
@@ -104,7 +120,7 @@ static void accel(const char *key, struct _GVariant *val) {
 		"%s %s %s %s",
 		wm_cmd[wm_spec],
 		device_cmd,
-		wm_cmd[wm_spec + 1],
+		wm_cmd[wm_spec + 1 + is_tilt],
 		accel_cmd[wm_accel + k]) == 0)
 	{
 		g_printerr("[Accelerometer] Could not write payload.\n");
@@ -118,17 +134,18 @@ static void accel(const char *key, struct _GVariant *val) {
 /* Since a{sv} is iterated over inside the generic handler,
  * either light unit or level will be passed here, but not both. */
 static void light(const char *key, struct _GVariant *val) {
-	if (unit == UNKNOWN) {
-		if (key[10] == 'U') { /* LightLevel_U_nit */
+	/*...LightLevel_U_nit */
+	if (key[10] == 'U') {
+		if (unit == UNKNOWN) {
 			const char *u = g_variant_get_string(val, NULL);
 			unit = (strchr(u, 'l')) ? SI_LUX : VENDOR;
-		} else return;
+		} 
+		return;
 	}
 
 	char cmd[MAX_PAYLOAD];
 	double level = g_variant_get_double(val);
-	unsigned int percentage =
-		(unsigned int)(level * 100.0 / light_max[unit]);
+	unsigned int percentage = (unsigned int)(level * 100.0 / light_max[unit]);
 
 	if (snprintf(cmd,
 		sizeof(BRIGHTNESS) + 3 + sizeof("%") + 1,
@@ -153,7 +170,7 @@ static void proximity(const char *key, struct _GVariant *val) {
 		"%s %s %s",
 		wm_cmd[wm_spec],
 		device_cmd,
-		wm_cmd[wm_spec + 2 + near]) == 0)
+		wm_cmd[wm_spec + 3 + near]) == 0)
 	{
 		g_printerr("[Proximity] Could not write payload.\n");
 		return;
@@ -195,9 +212,8 @@ void sensor_handler(
 			proximity(key, val);
 			break;
 		case 'H':
-			/* Ignore HasDevice property, because the
-			 * underlying proxy would simply not send
-			 * updates if the sensor is unavailable. */
+			/* Ignore Has{Device} property.
+			 * FIXME Check it in gdbus_connect() instead. */
 			break;
 		default:
 			g_printerr("Unmatched property: %s.\n", key);
