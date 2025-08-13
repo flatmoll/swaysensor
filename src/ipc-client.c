@@ -50,11 +50,8 @@ static bool ipc_parse(char *buf, size_t len) {
 /* Currently an identifier of the first listed output is obtained.
  * Memory is allocated because output length varies significantly. */
 static bool set_device() {
-	const char wm_dev_field[2][10] = {
-		"\"name\": \"",
-		"Monitor",
-	};
-	unsigned const char wm_dev_char[] = { 34, 32, };
+	const char wm_field[2][10] = { "\"name\": \"", "Monitor", };
+	unsigned const char wm_char[2] = { 34, 32, };
 
 	uint32_t len;
 	char *buf = malloc(HDR_LEN);
@@ -68,7 +65,8 @@ static bool set_device() {
 		goto error;
 	}
 
-	memcpy(&len, buf + IPC_LEN, 4);	
+	memcpy(&len, buf + IPC_LEN, sizeof(len));
+	
 	if (len > 0) {
 		char *tmp = realloc(buf, HDR_LEN + len + 1);
 		if (!tmp) {
@@ -83,22 +81,22 @@ static bool set_device() {
 		goto error;
 	}
 
-	bool wm_dev_id = (wm_spec == 4);
-	char *start = strstr(buf + HDR_LEN, wm_dev_field[wm_dev_id]);
+	bool wm_display = (wm_spec == 4);
+	char *start = strstr(buf + HDR_LEN, wm_field[wm_display]);
 	if (!start) {
 		g_printerr("Unexpected output information format.\n");
 		goto error;
 	}
 
-	start += strlen(wm_dev_field[wm_dev_id]);
-	char *end = strchr(start, wm_dev_char[wm_dev_id]);
+	start += strlen(wm_field[wm_display]);
+	char *end = strchr(start, wm_char[wm_display]);
 
-	device_len = end ? (size_t)(end - start) : strlen(start);
+	device_len = end ? (size_t)(end - start) : 0;
 	memcpy(device_cmd, start, device_len);
 	device_cmd[device_len] = '\0';
 
 	free(buf);
-	return true;
+	return (device_len != 0);
 
 error:
 	if (buf)
@@ -107,7 +105,7 @@ error:
 }
 
 static bool ipc_read(message_t type) {
-	if (type == 3)
+	if (type == GET_OUTPUTS)
 		return set_device();
 
 	uint32_t len;	
@@ -118,7 +116,7 @@ static bool ipc_read(message_t type) {
 		return false;
 	}
 
-	memcpy(&len, buf + IPC_LEN, 4);
+	memcpy(&len, buf + IPC_LEN, sizeof(len));
 
 	if (!ipc_parse(buf + HDR_LEN, len)) {
 		perror("parse payload");
@@ -128,7 +126,7 @@ static bool ipc_read(message_t type) {
 	return strstr(buf + HDR_LEN, "\"success\": true") != NULL;
 }
 
-/* AFAIK native byte order is supported by most window managers. */
+// FIXME Message format for Hyprland
 bool ipc_send(message_t type, const char *payload) {
 	static GMutex mutex;
 
@@ -196,10 +194,6 @@ static char *determine_environment() {
 		g_printerr("Unmatched WM environment.\n");
 		return NULL;
 	}
-	/* FIXME Hyprland
-	 * Define custom commands. Move literals from ipc_read()
-	 * and set_device() into a static array controlled by this
-	 * function. Move handler commands into a global array. */
 
 	return env;
 }
