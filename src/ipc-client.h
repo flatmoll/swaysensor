@@ -6,13 +6,22 @@
 #define MAX_HYPR_PATH	100
 
 /**
- * Select IPC message types.
- * FIXME Expand to account for Hyprland.
+ * Select IPC message types and environments.
  */
 typedef enum {
 	RUN_COMMAND = 0,
 	GET_OUTPUTS = 3,
-} message_t;
+} swaymsg_t;
+
+typedef enum {
+	SWAY_I3X = 0,
+	HYPRLAND = 4,
+} wmenv_t;
+
+typedef enum {
+	SWAY_I3X_ACCEL = 0,
+	HYPRLAND_ACCEL = 11,
+} wmaccel_t;
 
 /**
  * Connect to IPC socket.
@@ -26,4 +35,4 @@ bool ipc_connect();
  * @param payload payload
  * @return false on error
  */
-bool ipc_send(message_t type, const char *payload);
+bool ipc_send(swaymsg_t type, const char *payload);
