@@ -19,8 +19,8 @@
  * navigate across different properties and their appropriate commands.
  * Booleans are added to them to make final binary choices. */
 
-extern unsigned int wm_spec;
-extern unsigned int wm_accel;
+extern wmenv_t wm_spec;
+extern wmaccel_t wm_accel;
 extern size_t device_len;
 extern char device_cmd[MAX_SHORT_RESP];
 
@@ -100,7 +100,7 @@ static double light_max[2] = {
 	1200.0,		/* unit = SI_LUX = 1 */
 };
 
-static void accel(const char *key, struct _GVariant *val) {
+static inline void accel(const char *key, struct _GVariant *val) {
 	int i = 0, k = 0;
 	bool is_tilt = false;
 	char cmd[MAX_PAYLOAD];
@@ -113,7 +113,8 @@ static void accel(const char *key, struct _GVariant *val) {
 		return; /* Remove when defining commands for tilt. */
 	}
 
-	while (prop[i] != accel_val[k]) k++;
+	while (prop[i] != accel_val[k])
+		k++;
 
 	if (snprintf(cmd,
 		device_len + 2*sizeof(wm_cmd[0]) + sizeof(accel_cmd[0]),
@@ -133,7 +134,7 @@ static void accel(const char *key, struct _GVariant *val) {
 
 /* Since a{sv} is iterated over inside the generic handler,
  * either light unit or level will be passed here, but not both. */
-static void light(const char *key, struct _GVariant *val) {
+static inline void light(const char *key, struct _GVariant *val) {
 	/*...LightLevel_U_nit */
 	if (key[10] == 'U') {
 		if (unit == UNKNOWN) {
@@ -161,7 +162,7 @@ static void light(const char *key, struct _GVariant *val) {
 		g_printerr("[Ambient light] IO socket operation failed.\n");
 }
 
-static void proximity(const char *key, struct _GVariant *val) {
+static inline void proximity(const char *key, struct _GVariant *val) {
 	char cmd[MAX_PAYLOAD];
 	const gboolean near = g_variant_get_boolean(val);
 

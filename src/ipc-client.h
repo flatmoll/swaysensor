@@ -15,7 +15,7 @@ typedef enum {
 
 typedef enum {
 	SWAY_I3X = 0,
-	HYPRLAND = 4,
+	HYPRLAND = 5,
 } wmenv_t;
 
 typedef enum {

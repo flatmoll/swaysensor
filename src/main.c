@@ -23,7 +23,7 @@ bool devices[NUM_DEV] = {
 	false, /* proximity */
 };
 
-int sock_fd = -1;
+extern int sock_fd;
 static GMainLoop *loop;
 
 static gboolean g_handle(gpointer data) {

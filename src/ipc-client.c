@@ -16,16 +16,17 @@
 #include <unistd.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <glib.h>
 #include <gio/gio.h>
 
 #include "ipc-client.h"
-#include "glib.h"
 
 #define SWAY_I3X_MAGIC	"i3-ipc"
 #define SWAY_I3X_IPCLEN 6
 #define SWAY_I3X_HDRLEN 14
+#define HYPR_LONG_RESP	2048
 
-extern int sock_fd;
+int sock_fd = -1;
 static char *sock_path;
 
 wmenv_t wm_spec;
@@ -35,26 +36,187 @@ size_t device_len;
 char device_cmd[MAX_SHORT_RESP];
 char hypr_env[MAX_HYPR_PATH];
 
-static bool ipc_parse(char *buf, size_t len) {
+static char *determine_environment() {
+	char *env = NULL;
+
+	if ((env = getenv("SWAYSOCK")) || (env = getenv("I3SOCK"))) {
+		wm_spec = SWAY_I3X;
+		wm_accel = SWAY_I3X_ACCEL;
+	} else if ((env = getenv("HYPRLAND_INSTANCE_SIGNATURE"))) {
+		char *dir = getenv("XDG_RUNTIME_DIR");
+		if (!dir)
+			return NULL;
+
+		if (snprintf(hypr_env,
+			MAX_HYPR_PATH,
+			"%s/hypr/%s/.socket.sock",
+			dir,
+			env) == 0)
+		{
+			g_printerr("Failed to set Hyprland environment.\n");
+			return NULL;
+		}
+		
+		wm_spec = HYPRLAND;
+		wm_accel = HYPRLAND_ACCEL;
+		env = hypr_env;
+	} else {
+		g_printerr("Unmatched WM environment.\n");
+		return NULL;
+	}
+
+	return env;
+}
+
+bool ipc_connect() {
+	if (!sock_path) {
+		sock_path = determine_environment();		
+		if (!sock_path) {
+			g_printerr("Could not find socket path.\n");
+			return false;
+		}
+		if (wm_spec == HYPRLAND)
+			return true;
+	}
+
+	sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (sock_fd == -1) {
+		perror("ipc create socket");
+		return false;
+	}
+
+	struct sockaddr_un addr;
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strncpy(addr.sun_path, sock_path, sizeof(addr.sun_path) - 1);
+
+	if (connect(sock_fd, (struct sockaddr*)&addr,
+				sizeof(addr)) == -1) {
+		perror("ipc connect");
+		close(sock_fd);
+		sock_fd = -1;
+		return false;
+	}
+
+	return true;
+}
+
+static inline bool ipc_write(unsigned char *buf, size_t len) {
+	static GMutex m_write;
+	size_t sent = 0;
+	ssize_t n;
+
+	g_mutex_lock(&m_write);
+	while (sent < len) {
+		n = write(sock_fd, buf + sent, len - sent);
+		if (n == 0) {
+			g_mutex_unlock(&m_write);
+			return true;
+		} else if (n < 0) {
+			g_mutex_unlock(&m_write);
+			return false;
+		}
+		sent += n;
+	}
+
+	g_mutex_unlock(&m_write);
+	return true;
+}
+
+static inline bool ipc_parse(char *buf, size_t len) {
+	static GMutex m_parse;
 	size_t received = 0;
 	ssize_t n;
 	
+	g_mutex_lock(&m_parse);
 	while (received < len) {
 		n = recv(sock_fd, buf + received, len - received, 0);
-		if (n < 0)
-			return false;
+		if (n == 0) {
+			g_mutex_unlock(&m_parse);
+			return true;
+		} else if (n < 0) {
+			g_mutex_unlock(&m_parse);
+			return false;			
+		}
 		received += n;
 	}
 	
+	g_mutex_unlock(&m_parse);
 	return true;
+}
+
+static inline bool hypr_set_device() {
+	uint32_t len = HYPR_LONG_RESP;
+	char *buf = malloc(HYPR_LONG_RESP);
+	if (!buf) {
+		perror("[Hyprland] set device malloc");
+		goto error;
+	}
+
+	if (!ipc_parse(buf, len)) {
+		perror("[Hyprland] parse device payload");
+		goto error;
+	}
+
+	char field[] = "Monitor ";
+	char *start = strstr(buf, field);
+	if (!start) {
+		g_printerr("Unexpected output information format.\n");
+		goto error;
+	}
+
+	start += sizeof(field) - 1;
+	char *end = strchr(start, 32);
+
+	device_len = end ? (size_t)(end - start) : 0;
+	memcpy(device_cmd, start, device_len);
+	device_cmd[device_len] = '\0';
+
+	free(buf);
+	return (device_len != 0);
+
+error:
+	if (buf)
+		free(buf);
+	return false;
+}
+
+
+static inline bool hypr_read_status() {
+	char buf[MAX_SHORT_RESP];
+
+	if (!ipc_parse(buf, sizeof(buf))) {
+		perror("[Hyprland] parse payload");
+		return false;
+	}
+
+	return strstr(buf, "ok") != NULL;
+}
+
+static inline bool hypr_interact(swaymsg_t type, const char *payload) {
+	if (!ipc_connect()) {
+		g_printerr("Reconnect to Hyprland failed.\n");
+		return false;
+	}
+
+	char dev[] = "monitors";
+	const char *new_payload = (type == RUN_COMMAND) ? payload : dev;
+	uint32_t payload_len = (uint32_t)strlen(new_payload);	
+
+	if (!ipc_write((unsigned char *)new_payload, payload_len)) {
+		perror("[Hyprland] send payload");
+		return false;
+	}
+
+	if (type == GET_OUTPUTS)
+		return hypr_set_device();
+
+	return hypr_read_status();
 }
 
 /* Currently an identifier of the first listed output is obtained.
  * Memory is allocated because output length varies significantly. */
-static bool set_device() {
-	const char wm_field[2][10] = { "\"name\": \"", "Monitor", };
-	unsigned const char wm_char[2] = { 34, 32, };
-
+static inline bool sway_set_device() {
 	uint32_t len;
 	char *buf = malloc(SWAY_I3X_HDRLEN);
 	if (!buf) {
@@ -83,15 +245,15 @@ static bool set_device() {
 		goto error;
 	}
 
-	bool wm_display = (wm_spec == HYPRLAND);
-	char *start = strstr(buf + SWAY_I3X_HDRLEN, wm_field[wm_display]);
+	char field[] = "\"name\": \"";
+	char *start = strstr(buf + SWAY_I3X_HDRLEN, field);
 	if (!start) {
 		g_printerr("Unexpected output information format.\n");
 		goto error;
 	}
 
-	start += strlen(wm_field[wm_display]);
-	char *end = strchr(start, wm_char[wm_display]);
+	start += sizeof(field) - 1;
+	char *end = strchr(start, '\"');
 
 	device_len = end ? (size_t)(end - start) : 0;
 	memcpy(device_cmd, start, device_len);
@@ -106,133 +268,56 @@ error:
 	return false;
 }
 
-static bool ipc_read(swaymsg_t type) {
-	if (type == GET_OUTPUTS)
-		return set_device();
-
-	uint32_t len;	
+static inline bool sway_read_status() {
+	uint32_t resp_len;
 	char buf[MAX_SHORT_RESP];
 
 	if (!ipc_parse(buf, SWAY_I3X_HDRLEN)) {
-		perror("parse header");
+		perror("[Sway/i3] parse header");
 		return false;
 	}
 
-	memcpy(&len, buf + SWAY_I3X_IPCLEN, sizeof(len));
+	memcpy(&resp_len, buf + SWAY_I3X_IPCLEN, sizeof(resp_len));
 
-	if (!ipc_parse(buf + SWAY_I3X_HDRLEN, len)) {
-		perror("parse payload");
+	if (!ipc_parse(buf + SWAY_I3X_HDRLEN, resp_len)) {
+		perror("[Sway/i3] parse payload");
 		return false;
 	}
 
 	return strstr(buf + SWAY_I3X_HDRLEN, "\"success\": true") != NULL;
 }
 
-// FIXME Message format for Hyprland
-bool ipc_send(swaymsg_t type, const char *payload) {
-	static GMutex mutex;
-
-	unsigned int header_len = (wm_spec == SWAY_I3X) ? SWAY_I3X_HDRLEN : 0;
+static inline bool sway_interact(swaymsg_t type, const char *payload) {
 	uint32_t payload_len = (uint32_t)strlen(payload);	
-	uint8_t message[header_len + payload_len];		
+	uint8_t message[SWAY_I3X_HDRLEN + payload_len];
+	type = (uint32_t)type;
 
-	if (payload_len > MAX_PAYLOAD) {
-		g_printerr("Payload size limit exceeded.\n");
+	memcpy(message, SWAY_I3X_MAGIC, SWAY_I3X_IPCLEN);
+	memcpy(message + SWAY_I3X_IPCLEN, &payload_len, 4);
+	memcpy(message + SWAY_I3X_IPCLEN + 4, &type, 4);
+	memcpy(message + SWAY_I3X_HDRLEN, payload, payload_len);
+	payload_len += SWAY_I3X_HDRLEN;
+	
+	if (!ipc_write(message, payload_len)) {
+		perror("[Sway/i3] send payload\n");
 		return false;
 	}
 
-	if (wm_spec == SWAY_I3X) {
-		type = (uint32_t)type;	
-		memcpy(message, SWAY_I3X_MAGIC, SWAY_I3X_IPCLEN);
-		memcpy(message + SWAY_I3X_IPCLEN, &payload_len, 4);
-		memcpy(message + SWAY_I3X_IPCLEN + 4, &type, 4);
-		memcpy(message + SWAY_I3X_IPCLEN + 8, payload, payload_len);
-		payload_len += SWAY_I3X_HDRLEN;
-	} else if (wm_spec == HYPRLAND) {
-		char t = '/';
-		memcpy(message, &t, 1);
-		memcpy(message + 1, payload, payload_len);
-	} else {
+	if (type == GET_OUTPUTS)
+		return sway_set_device();
+
+	return sway_read_status();
+}
+
+bool ipc_send(swaymsg_t type, const char *payload) {
+	switch (wm_spec) {
+	case SWAY_I3X:
+		return sway_interact(type, payload);
+	case HYPRLAND:
+		return hypr_interact(type, payload);
+	default:
 		g_assert_not_reached();
 	}
 
-	size_t sent = 0;
-	ssize_t n;
-	g_mutex_lock(&mutex);
-	while (sent < payload_len){
-		n = write(sock_fd, message + sent, payload_len - sent);
-		if (n < 0) {
-			g_mutex_unlock(&mutex);
-			perror("ipc write");
-			return false;
-		}
-		sent += n;
-	}
-	g_mutex_unlock(&mutex);
-
-	return ipc_read(type);
-}
-
-static char *determine_environment() {
-	char *env = NULL;
-
-	if ((env = getenv("SWAYSOCK"))) {
-		wm_spec = SWAY_I3X;
-		wm_accel = 0;
-	} else if ((env = getenv("I3SOCK"))) {
-		wm_spec = SWAY_I3X;
-		wm_accel = 0;
-	} else if ((env = getenv("HYPRLAND_INSTANCE_SIGNATURE"))) {
-		char *dir = getenv("XDG_RUNTIME_DIR");
-		if (!dir)
-			return NULL;
-
-		if (snprintf(hypr_env,
-			MAX_HYPR_PATH,
-			"%s/hypr/%s/.socket.sock",
-			dir,
-			env) == 0)
-		{
-			g_printerr("Failed to set Hyprland environment.\n");
-			return NULL;
-		}
-		
-		wm_spec = HYPRLAND;
-		wm_accel = 11;
-		env = hypr_env;
-	} else {
-		g_printerr("Unmatched WM environment.\n");
-		return NULL;
-	}
-
-	return env;
-}
-
-bool ipc_connect() {
-	sock_path = determine_environment();
-	if (!sock_path) {
-		g_printerr("Could not find socket path.\n");
-		return false;
-	}
-
-	sock_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock_fd == -1) {
-		perror("ipc create socket");
-		return false;
-	}
-
-	struct sockaddr_un addr;
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, sock_path, sizeof(addr.sun_path) - 1);
-
-	if (connect(sock_fd, (struct sockaddr*)&addr,
-				sizeof(addr)) == -1) {
-		perror("ipc connect");
-		close(sock_fd);
-		sock_fd = -1;
-		return false;
-	}
-
-	return true;
+	return false;
 }
