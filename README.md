@@ -5,7 +5,7 @@ An efficient [iio-sensor-proxy](https://gitlab.freedesktop.org/hadess/iio-sensor
 ## Support
 
 - **Features**: auto-rotation, ambient light (testing needed), proximity.
-- **Window managers**: Sway, i3.
+- **Window managers**: Sway, i3, Hyprland.
 
 ## Contributing
 
@@ -17,6 +17,6 @@ To connect or to discuss the development, join the dedicated [Matrix room](https
 
 ## Active tasks
 
-- [ ] Implement command support for Hyprland.
+- [ ] Simplify WM-related logic inside IPC client.
 - [ ] User polling: action to perform on tilt updates.
 - [ ] User polling: gather relevant ambient light metrics.
