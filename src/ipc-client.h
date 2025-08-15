@@ -3,7 +3,7 @@
 
 #define MAX_PAYLOAD	178
 #define MAX_SHORT_RESP	96
-#define MAX_HYPR_PATH	100
+#define MAX_SOCK_PATH	100
 
 /**
  * Select IPC message types and environments.

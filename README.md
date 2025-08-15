@@ -1,11 +1,11 @@
 # swaysensor
 
-An efficient [iio-sensor-proxy](https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/) integration for window managers. Initial development stage.
+An efficient [iio-sensor-proxy](https://gitlab.freedesktop.org/hadess/iio-sensor-proxy/) integration for Wayland compositors. Initial development stage.
 
 ## Support
 
 - **Features**: auto-rotation, ambient light (testing needed), proximity.
-- **Window managers**: Sway, i3, Hyprland.
+- **Compositors**: Sway, Hyprland.
 
 ## Contributing
 
@@ -18,5 +18,7 @@ To connect or to discuss the development, join the dedicated [Matrix room](https
 ## Active tasks
 
 - [ ] Simplify WM-related logic inside IPC client.
-- [ ] User polling: action to perform on tilt updates.
-- [ ] User polling: gather relevant ambient light metrics.
+- [ ] Poll: next compositor to add support for.
+- [ ] Poll: action to perform on tilt updates.
+- [ ] Poll: gather relevant ambient light metrics.
+- [ ] Planned: X window managers (i3 and others).
