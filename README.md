@@ -17,8 +17,6 @@ To connect or to discuss the development, join the dedicated [Matrix room](https
 
 ## Active tasks
 
-- [ ] Simplify WM-related logic inside IPC client.
-- [ ] Poll: next compositor to add support for.
+- [ ] Connect directly to wlroots instead of IPC [wlr-generic].
 - [ ] Poll: action to perform on tilt updates.
 - [ ] Poll: gather relevant ambient light metrics.
-- [ ] Planned: X window managers (i3 and others).
