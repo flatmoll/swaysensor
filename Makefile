@@ -17,10 +17,12 @@ BUILDDIR	:= ./build
 TARGET		:= swaysensor
 
 CFLAGS		:= -Wall -g -pg
-ALLCFLAGS	:= $(shell pkg-config --cflags gio-2.0 glib-2.0)
+ALLCFLAGS	:= $(shell pkg-config --cflags gio-2.0 glib-2.0 \
+			wayland-client)
 
 LDFLAGS		:= -pg
-LDLIBS		:= $(shell pkg-config --libs gio-2.0 glib-2.0)
+LDLIBS		:= $(shell pkg-config --libs gio-2.0 glib-2.0 \
+			wayland-client)
 
 SOURCES		:= $(wildcard $(SRCDIR)/*.c)
 OBJECTS		:= $(patsubst $(SRCDIR)/%.c,$(BUILDDIR)/%.o,$(SOURCES))
