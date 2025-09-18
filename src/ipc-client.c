@@ -36,22 +36,12 @@ size_t device_len;
 char device_cmd[MAX_SHORT_RESP];
 char synth_sock[MAX_SOCK_PATH];
 
-/* Branch for i3 is commented out and scheduled for another time.
- * It turns out that I3SOCK may not necessarily be set, thus the
- * socket path must be retrieved as an X root window property,
- * which will be implemented in get_xprop(), probably in a separate
- * utils file. For now, Wayland compositors are prioritized. */
 static char *determine_environment() {
 	char *env = NULL;
 
 	if ((env = getenv("SWAYSOCK"))) {
 		wm_spec = SWAY_I3X;
 		wm_accel = SWAY_I3X_ACCEL;
-	/*
-	} else if ((env = getenv("I3SOCK")) || (env = get_xprop(SWAY_I3X))){
-		wm_spec = SWAY_I3X;
-	 	wm_accel = SWAY_I3X_ACCEL;
-	*/
 	} else if ((env = getenv("HYPRLAND_INSTANCE_SIGNATURE"))) {
 		char *dir = getenv("XDG_RUNTIME_DIR");
 		if (!dir)
@@ -71,7 +61,7 @@ static char *determine_environment() {
 		wm_accel = HYPRLAND_ACCEL;
 		env = synth_sock;
 	} else {
-		g_printerr("Unmatched WM environment.\n");
+		g_printerr("Unsupported compositor..\n");
 		return NULL;
 	}
 
